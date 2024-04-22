@@ -88,6 +88,15 @@ const getUser = (req, res) => {
     const decoded = jwt.decode(token, SECRET);
 
     if (decoded && decoded.account_id) {
+      const text = `
+        SELECT account.name, account.email, account_detail.* 
+        FROM account 
+        INNER JOIN account_detail ON account.account_id = account_detail.account_id
+        WHERE account.account_id=$1
+      `;
+      const values = [decoded.account_id];
+
+      pool.query(text, values, (error, results) => {
         if (error) {
           throw error;
         }
