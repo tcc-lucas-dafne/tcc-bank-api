@@ -54,7 +54,12 @@ const login = (req, res) => {
 
   const hashedPassword = sha1(password)
   
-  const text = "SELECT * FROM account WHERE email=$1 AND password=$2";
+  const text = `
+    SELECT account.name, account.email, account_detail.* 
+    FROM account 
+    INNER JOIN account_detail ON account.account_id = account_detail.account_id
+    WHERE email=$1 AND password=$2 
+  `;
   const values = [email, hashedPassword];
 
   pool.query(text, values, (error, results) => {
