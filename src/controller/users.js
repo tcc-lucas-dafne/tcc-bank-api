@@ -67,7 +67,7 @@ const login = (req, res) => {
       const tokenData = { id: result.id };
 
       const token = jwt.sign(tokenData, SECRET, { expiresIn: '7d' });
-      res.status(200).json({ token })
+      res.status(200).json({ token, account: result })
     } else {
       res.status(400).json({ "status": "error", "message": "not found" })
     }
