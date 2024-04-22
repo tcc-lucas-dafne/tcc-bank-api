@@ -69,7 +69,7 @@ const login = (req, res) => {
 
     if (results.rowCount) {
       const result = results.rows[0];
-      const tokenData = { id: result.id };
+      const tokenData = { account_id: result.account_id };
 
       const token = jwt.sign(tokenData, SECRET, { expiresIn: '7d' });
       res.status(200).json({ token, account: result })
@@ -86,11 +86,8 @@ const getUser = (req, res) => {
     const token = authorization.split(' ')[1];
 
     const decoded = jwt.decode(token, SECRET);
-    if (decoded && decoded.id) {
-      const userId = decoded.id;
-  
-      const text = `SELECT id, email FROM users WHERE id='${userId}'`;
-      pool.query(text, (error, results) => {
+
+    if (decoded && decoded.account_id) {
         if (error) {
           throw error;
         }
