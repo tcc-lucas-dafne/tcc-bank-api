@@ -19,20 +19,34 @@ const register = (req, res) => {
   
   const hashedPassword = sha1(password);
 
-  const text = "INSERT INTO account(name, email, password) VALUES($1, $2, $3)";
+  const text = "INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id";
   const values = [name, email, hashedPassword];
 
-  pool.query(text, values, (error, results) => {
+  pool.query(text, values, (error, result) => {
     if (error) {
       if (error.code === '23505') {
         return res.status(400).json({ "error": "already registered" })
       } else {
         return res.status(400).json({ "error": `unknown error (${error.code})` })
       }
+    };
+
+    const { account_id } = result.rows[0];
+    createAccountDetails(account_id);
+  });
+};
+
+const createAccountDetails = (accountId) => {
+  const text = "INSERT INTO account_detail(account_id, balance, acc_limit) VALUES($1, $2, $3)";
+  const values = [accountId, 0, 100];
+
+  pool.query(text, values, (error, _) => {
+    if (error) {
+      return res.status(400).json({ "error": `unknown error (${error.code})` })
     }
 
-    res.status(201).json({ "status": "success" })
-  });
+    return res.status(201).json({ "status": "success" });
+  })
 }
 
 const login = (req, res) => {
