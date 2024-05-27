@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  tcc-bank-api:
+    container_name: backend_tcc_bank
+    build: .
+    ports:
+      - 3001:3001
+    environment: 
+      PORT: 3001
+    volumes:
+      - ./:/code
+      - node_modules:/code/node_modules
+    networks: 
+      - backend_tcc_bank
+    depends_on:
+      - tcc-bank-db
+
+  tcc-bank-db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SECRET: ${SECRET}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - backend_tcc_bank
+
+volumes: 
+  postgres_data:
+  node_modules:
+
+networks: 
+  backend_tcc_bank:
