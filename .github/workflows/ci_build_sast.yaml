@@ -17,22 +17,18 @@ jobs:
         run: |
           git config --global user.email "${{secrets.GIT_USER_EMAIL}}"
           git config --global user.name "${{secrets.GIT_USER_NAME}}"
-  
-      # NPM AUDIT
-      - name: run npm audit
-        uses: oke-py/npm-audit-action@v2
+
+      - uses: pnpm/action-setup@v4
         with:
-          audit_level: low
-          create_issues: true
-          github_token: ${{ secrets.TOKEN_GIT }}
-          issue_labels: vulnerability
+          version: 8
 
-      - name: install npm ci
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.TOKEN_GIT }}
-        run: npm ci
+      - name: run pnpm audit
+        run: pnpm audit
 
-      # SonarCloud Scan
+      - name: install pnpm
+        run: pnpm install --frozen-lockfile
+
+      # SONAR CLOUD
       - name: SonarCloud
         if: always()
         uses: actions/checkout@v3
