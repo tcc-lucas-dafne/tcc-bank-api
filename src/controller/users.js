@@ -2,7 +2,8 @@ const Pool = require('pg').Pool
 const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
 
-const SECRET = process.env.SECRET;
+// Secret fraco
+const SECRET = process.env.SECRET ?? 'mysecret';
 
 const pool = new Pool({
   user: process.env.POSTGRES_USER,
@@ -17,30 +18,30 @@ const register = (req, res) => {
 
   if (!name || !email || !password) return res.status(400).json({ "error": "invalid body" })
   
+  // Hash vulneravel
   const hashedPassword = sha1(password);
 
-  const text = "INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id";
-  const values = [name, email, hashedPassword];
-
-  pool.query(text, values, (error, result) => {
+  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
+  
+  // SQL Injection
+  pool.query(text, (error, result) => {
     if (error) {
       if (error.code === '23505') {
         return res.status(400).json({ "error": "already registered" })
       } else {
         return res.status(400).json({ "error": `unknown error (${error.code})` })
       }
-    };
+    }
 
     const { account_id } = result.rows[0];
-    createAccountDetails(account_id);
+    createAccountDetails(account_id, res);  // Missing return of response
   });
 };
 
-const createAccountDetails = (accountId) => {
-  const text = "INSERT INTO account_detail(account_id, balance, acc_limit) VALUES($1, $2, $3)";
-  const values = [accountId, 0, 100];
+const createAccountDetails = (accountId, res) => {
+  const text = `INSERT INTO account_detail(account_id, balance, acc_limit) VALUES(${accountId}, 0, 100)`;
 
-  pool.query(text, values, (error, _) => {
+  pool.query(text, (error, _) => {
     if (error) {
       return res.status(400).json({ "error": `unknown error (${error.code})` })
     }
@@ -52,17 +53,17 @@ const createAccountDetails = (accountId) => {
 const login = (req, res) => {
   const { email, password } = req.body;
 
-  const hashedPassword = sha1(password)
+  const hashedPassword = sha1(password);
   
+  // SQL Injection
   const text = `
     SELECT account.name, account.email, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email=$1 AND password=$2 
+    WHERE email='${email}' AND password='${hashedPassword}'
   `;
-  const values = [email, hashedPassword];
 
-  pool.query(text, values, (error, results) => {
+  pool.query(text, (error, results) => {
     if (error) {
       throw error;
     }
@@ -85,24 +86,25 @@ const getUser = (req, res) => {
   try {
     const token = authorization.split(' ')[1];
 
+    // Verificação do token JWT improprio. (é feito um decode ao inves de verificar a validade dele)
     const decoded = jwt.decode(token, SECRET);
 
-    if (decoded && decoded.account_id) {
+    if (decoded?.account_id) {
+      // SQL Injection
       const text = `
         SELECT account.name, account.email, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
-        WHERE account.account_id=$1
+        WHERE account.account_id=${decoded.account_id}
       `;
-      const values = [decoded.account_id];
 
-      pool.query(text, values, (error, results) => {
+      pool.query(text, (error, results) => {
         if (error) {
           throw error;
         }
     
         if (results.rowCount) {
-          const result = results.rows[0];    
+          const result = results.rows[0];
           res.status(200).json(result);
         } else {
           res.status(400).json({ "status": "error", "message": "not found" });
