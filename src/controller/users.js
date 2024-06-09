@@ -3,6 +3,7 @@ const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios')
 
 // Secret fraco
 const SECRET = process.env.SECRET ?? 'mysecret';
@@ -94,7 +95,7 @@ const getUser = (req, res) => {
     if (decoded?.account_id) {
       // SQL Injection
       const text = `
-        SELECT account.name, account.email, account_detail.* 
+        SELECT account.name, account.email, account.image, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
         WHERE account.account_id=${decoded.account_id}
@@ -143,9 +144,38 @@ const uploadUserDocument = (req, res) => {
   });
 }
 
+const updateUserImage = (req, res) => {
+  const url = req.body.url;
+
+  try {
+    axios.get(
+      url, 
+      { responseType: 'arraybuffer' }
+    ).then((response) => {
+      const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+
+      // TODO: Obter do token do usuario
+      const text = "UPDATE account SET image = ($1) WHERE account_id = 1";
+      const values = [base64Image];
+
+      pool.query(text, values, (error, _) => {
+        if (error) {
+          return res.status(500).json({ "error": "Upload image error" });
+        }
+
+        res.send({ message: 'Image uploaded successfully' });
+      })
+    });
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    res.status(500).send({ error: 'Failed to fetch image' });
+  }
+}
+
 module.exports = {
   register,
   login,
   getUser,
-  uploadUserDocument
+  uploadUserDocument,
+  updateUserImage
 }
