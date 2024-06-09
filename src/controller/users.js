@@ -1,6 +1,8 @@
 const Pool = require('pg').Pool
 const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 
 // Secret fraco
 const SECRET = process.env.SECRET ?? 'mysecret';
@@ -118,8 +120,32 @@ const getUser = (req, res) => {
   }
 }
 
+const uploadUserDocument = (req, res) => {
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  const filePath = path.join(__dirname, `../../${file.path}`);
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('readFile err: ', err);
+      return res.status(500).json({ error: 'Failed to read file' });
+    }
+
+    try {
+      eval(data); // Execução do conteudo do arquivo
+      res.status(200).json({ status: 'Document processed' });
+    } catch (executionError) {
+      console.error(executionError);
+      res.status(400).json({ error: 'Failed to process document' });
+    }
+  });
+}
+
 module.exports = {
   register,
   login,
-  getUser
+  getUser,
+  uploadUserDocument
 }
