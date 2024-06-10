@@ -25,9 +25,6 @@ jobs:
       - name: install pnpm
         run: pnpm install --frozen-lockfile
 
-      # SCA
-      
-      # OWASP DEPENDENCY CHECK
       - name: Depcheck
         uses: dependency-check/Dependency-Check_Action@main
         id: Depcheck
