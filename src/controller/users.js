@@ -20,12 +20,12 @@ const register = (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) return res.status(400).json({ "error": "invalid body" })
-  
+
   // Hash vulneravel
   const hashedPassword = sha1(password);
 
   const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
-  
+
   // SQL Injection
   pool.query(text, (error, result) => {
     if (error) {
@@ -57,7 +57,7 @@ const login = (req, res) => {
   const { email, password } = req.body;
 
   const hashedPassword = sha1(password);
-  
+
   // SQL Injection
   const text = `
     SELECT account.name, account.email, account_detail.* 
@@ -105,7 +105,7 @@ const getUser = (req, res) => {
         if (error) {
           throw error;
         }
-    
+
         if (results.rowCount) {
           const result = results.rows[0];
           res.status(200).json(result);
@@ -149,7 +149,7 @@ const updateUserImage = (req, res) => {
 
   try {
     axios.get(
-      url, 
+      url,
       { responseType: 'arraybuffer' }
     ).then((response) => {
       const base64Image = Buffer.from(response.data, 'binary').toString('base64');
@@ -172,10 +172,53 @@ const updateUserImage = (req, res) => {
   }
 }
 
+const createLimitIncreaseRequest = (req, res) => {
+  try {
+    const { requestedAmount } = req.body;
+
+    if (!requestedAmount || typeof requestedAmount !== "number") {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    const { authorization } = req.headers;
+
+    const token = authorization.split(' ')[1];
+
+    const decoded = jwt.decode(token, SECRET);
+
+    const { account_id } = decoded;
+
+    if (!account_id) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const text = "INSERT INTO account_request (account_id, requested_amount, request_date, status) VALUES ($1, $2, $3, $4);";
+    const values = [
+      account_id,
+      requestedAmount,
+      new Date(),
+      "pending"
+    ]
+
+    pool.query(text, values, (error, _) => {
+      if (error) {
+        console.log('error: ', error);
+        return res.status(500).json({ error: "Error request create" });
+      }
+
+      return res.status(201).send("Request created");
+    })
+  } catch (error) {
+    console.error('[createLimitIncreaseRequest]: ', error);
+    return res.status(500).json({ error: "Unknown Error" });
+  }
+};
+
 module.exports = {
   register,
   login,
   getUser,
   uploadUserDocument,
-  updateUserImage
+  updateUserImage,
+  createLimitIncreaseRequest
 }
