@@ -3,15 +3,16 @@ const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios')
+const axios = require('axios');
+const { config } = require('../config/database');
 
 // Secret fraco
 const SECRET = process.env.SECRET ?? 'mysecret';
 
 const pool = new Pool({
-  user: process.env.POSTGRES_USER,
-  host: process.env.POSTGRES_HOST,
-  database: process.env.POSTGRES_DB,
+  user: config.POSTGRES_USER,
+  host: config.POSTGRES_HOST,
+  database: config.POSTGRES_DB,
   password: process.env.POSTGRES_PASSWORD,
   port: 5432,
 });
