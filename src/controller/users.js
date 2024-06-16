@@ -155,9 +155,20 @@ const updateUserImage = (req, res) => {
     ).then((response) => {
       const base64Image = Buffer.from(response.data, 'binary').toString('base64');
 
-      // TODO: Obter do token do usuario
-      const text = "UPDATE account SET image = ($1) WHERE account_id = 1";
-      const values = [base64Image];
+      const { authorization } = req.headers;
+
+      const token = authorization.split(' ')[1];
+  
+      const decoded = jwt.decode(token, SECRET);
+
+      const { account_id } = decoded;
+
+      if (!account_id) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+
+      const text = "UPDATE account SET image = ($1) WHERE account_id = $2";
+      const values = [base64Image, account_id];
 
       pool.query(text, values, (error, _) => {
         if (error) {
