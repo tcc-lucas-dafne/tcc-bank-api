@@ -1,5 +1,3 @@
-console.log(process.env);
-
 let config;
 if (process.env.NODE_ENV === "homolog") {
   config = {
