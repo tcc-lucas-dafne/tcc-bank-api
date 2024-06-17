@@ -82,7 +82,7 @@ jobs:
           docker run --rm \
             owasp/dependency-check:latest \
             sh -c "apk add --no-cache nodejs npm && npm install -g pnpm && pnpm install && \
-            dependency-check.sh --project 'tcc-bank-api' --out '.' --format HTML --enableRetired --pnpm '/usr/local/bin/pnpm' --scan './pnpm-lock.yaml'"
+            dependency-check.sh --project 'tcc-bank-api' --out='.' --format='HTML' --enableRetired --pnpm='/usr/local/bin/pnpm' --scan=./pnpm-lock.yaml"
 
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v3
