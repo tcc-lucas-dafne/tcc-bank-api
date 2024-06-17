@@ -27,6 +27,9 @@ jobs:
       - name: install pnpm
         run: pnpm install --frozen-lockfile
 
+      - name: pnpm where
+        run: which pnpm
+
       # SCA
       # SNYK
       - name: Run Snyk to check for vulnerabilities
