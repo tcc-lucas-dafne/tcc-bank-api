@@ -56,7 +56,6 @@ jobs:
           format: 'ALL'
           out: 'depcheck'
           args: >
-            --pnpm /home/runner/setup-pnpm/node_modules/.bin/pnpm
             --enableRetired
             --nvdApiKey ${{ secrets.NVD_API_KEY }}
       
