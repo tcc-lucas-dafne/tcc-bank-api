@@ -65,16 +65,25 @@ jobs:
       #       --nvdApiKey ${{ secrets.NVD_API_KEY }}
 
       # OWASP DEPENDENCY CHECK
-      - name: Depcheck
-        uses: dependency-check/Dependency-Check_Action@main
-        id: Depcheck
-        with:
-          project: 'tcc-password-manager'
-          path: './'
-          format: 'HTML'
-          out: '.'
-          args: >
-            --enableRetired
+      # - name: Depcheck
+      #   uses: dependency-check/Dependency-Check_Action@main
+      #   id: Depcheck
+      #   with:
+      #     project: 'tcc-password-manager'
+      #     path: './'
+      #     format: 'HTML'
+      #     out: '.'
+      #     args: >
+      #       --enableRetired
+
+      - name: Run OWASP Dependency-Check with pnpm
+        run: |
+          docker run --rm \
+            -v $(pwd):/workspace \
+            -w /workspace \
+            owasp/dependency-check:latest \
+            sh -c "apk add --no-cache nodejs npm && npm install -g pnpm && pnpm install && dependency-check.sh --project 'tcc-password-manager' --out . --format HTML --enableRetired --pnpm /usr/local/bin/pnpm pnpm-lock.yaml"
+
 
       
       - name: Upload SARIF results file
