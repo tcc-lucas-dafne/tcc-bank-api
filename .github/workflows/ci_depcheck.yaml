@@ -56,9 +56,9 @@ jobs:
           format: 'ALL'
           out: 'depcheck'
           args: >
+            --pnpm /home/runner/setup-pnpm/node_modules/.bin/pnpm
             --enableRetired
             --nvdApiKey ${{ secrets.NVD_API_KEY }}
-            --pnpm /home/runner/setup-pnpm/node_modules/.bin/pnpm
       
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v3
