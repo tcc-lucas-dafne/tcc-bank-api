@@ -32,9 +32,6 @@ jobs:
       - name: install npm
         run: npm install --frozen-lockfile
 
-      - name: pnpm where
-        run: which pnpm
-
       - name: files
         run: ls
 
