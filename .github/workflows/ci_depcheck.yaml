@@ -29,8 +29,14 @@ jobs:
       - name: install pnpm
         run: pnpm install --frozen-lockfile
 
+      - name: install npm
+        run: npm install --frozen-lockfile
+
       - name: pnpm where
         run: which pnpm
+
+      - name: files
+        run: ls
 
       # SCA
       # SNYK
