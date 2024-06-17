@@ -52,7 +52,7 @@ jobs:
         id: Depcheck
         with:
           project: 'tcc-password-manager'
-          path: './'
+          path: './pnpm-lock.yaml'
           format: 'ALL'
           out: 'depcheck'
           args: >
