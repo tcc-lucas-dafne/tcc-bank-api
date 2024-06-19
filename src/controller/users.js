@@ -4,10 +4,11 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const crypto = require('node:crypto');
 const { config } = require('../config/database');
 
 // Secret fraco
-const SECRET = process.env.SECRET ?? 'mysecret';
+const SECRET = process.env.SECRET ?? crypto.randomBytes(8);
 
 const pool = new Pool({
   user: config.POSTGRES_USER,
@@ -23,9 +24,13 @@ const register = (req, res) => {
   if (!name || !email || !password) return res.status(400).json({ "error": "invalid body" })
 
   // Hash vulneravel
-  const hashedPassword = sha1(password);
+  // const hashedPassword = sha1(password);
 
-  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
+  const cipher = crypto.createCipheriv('des-ecb', Buffer.from(SECRET, 'hex'), null);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+
+  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${encrypted}') RETURNING account_id`;
 
   // SQL Injection
   pool.query(text, (error, result) => {
@@ -57,14 +62,17 @@ const createAccountDetails = (accountId, res) => {
 const login = (req, res) => {
   const { email, password } = req.body;
 
-  const hashedPassword = sha1(password);
+  // const hashedPassword = sha1(password);
+  const cipher = crypto.createCipheriv('des-ecb', Buffer.from(SECRET, 'hex'), null);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
 
   // SQL Injection
   const text = `
     SELECT account.name, account.email, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email='${email}' AND password='${hashedPassword}'
+    WHERE email='${email}' AND password='${encrypted}'
   `;
 
   pool.query(text, (error, results) => {
