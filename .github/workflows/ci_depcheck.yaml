@@ -45,6 +45,27 @@ jobs:
         with:
           args: --sarif-file-output=snyk.sarif
 
+      # - name: Upload result to GitHub Code Scanning
+      #   uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: snyk.sarif
+      #     category: my-analysis-tool
+      
+      - name: install npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.TOKEN_GIT }}
+        run: npm ci
+
+      # SCA
+      # SNYK
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
@@ -52,38 +73,17 @@ jobs:
           category: my-analysis-tool
       
       # OWASP DEPENDENCY CHECK
-      # - name: Depcheck
-      #   uses: dependency-check/Dependency-Check_Action@main
-      #   id: Depcheck
-      #   with:
-      #     project: 'tcc-password-manager'
-      #     path: './pnpm-lock.yaml'
-      #     format: 'ALL'
-      #     out: 'depcheck'
-      #     args: >
-      #       --enableRetired
-      #       --nvdApiKey ${{ secrets.NVD_API_KEY }}
-
-      # OWASP DEPENDENCY CHECK
-      # - name: Depcheck
-      #   uses: dependency-check/Dependency-Check_Action@main
-      #   id: Depcheck
-      #   with:
-      #     project: 'tcc-password-manager'
-      #     path: './'
-      #     format: 'HTML'
-      #     out: '.'
-      #     args: >
-      #       --enableRetired
-
-      - name: Run OWASP Dependency-Check with pnpm
-        run: |
-          docker pull owasp/dependency-check:latest
-          docker run --rm \
-            owasp/dependency-check:latest \
-            sh -c "apk add --no-cache nodejs npm && npm install -g pnpm && pnpm install && \
-            dependency-check.sh --project 'tcc-bank-api' --out='.' --format='HTML' --enableRetired --pnpm='/usr/local/bin/pnpm' --scan=./pnpm-lock.yaml"
-
+      - name: Depcheck
+        uses: dependency-check/Dependency-Check_Action@main
+        id: Depcheck
+        with:
+          project: 'tcc-password-manager'
+          path: './'
+          format: 'ALL'
+          out: 'depcheck'
+          args: >
+            --enableRetired
+            --nvdApiKey ${{ secrets.NVD_API_KEY }}
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v3
         with:
