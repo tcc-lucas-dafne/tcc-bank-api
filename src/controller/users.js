@@ -4,11 +4,10 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const crypto = require('node:crypto');
 const { config } = require('../config/database');
 
 // Secret fraco
-const SECRET = process.env.SECRET ?? crypto.randomBytes(8);
+const SECRET = process.env.SECRET ?? 'mysecret';
 
 const pool = new Pool({
   user: config.POSTGRES_USER,
@@ -24,13 +23,9 @@ const register = (req, res) => {
   if (!name || !email || !password) return res.status(400).json({ "error": "invalid body" })
 
   // Hash vulneravel
-  // const hashedPassword = sha1(password);
+  const hashedPassword = sha1(password);
 
-  const cipher = crypto.createCipheriv('des-ecb', Buffer.from(SECRET, 'hex'), null);
-  let encrypted = cipher.update(password, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-
-  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${encrypted}') RETURNING account_id`;
+  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
 
   // SQL Injection
   pool.query(text, (error, result) => {
@@ -62,17 +57,14 @@ const createAccountDetails = (accountId, res) => {
 const login = (req, res) => {
   const { email, password } = req.body;
 
-  // const hashedPassword = sha1(password);
-  const cipher = crypto.createCipheriv('des-ecb', Buffer.from(SECRET, 'hex'), null);
-  let encrypted = cipher.update(password, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
+  const hashedPassword = sha1(password);
 
   // SQL Injection
   const text = `
     SELECT account.name, account.email, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email='${email}' AND password='${encrypted}'
+    WHERE email='${email}' AND password='${hashedPassword}'
   `;
 
   pool.query(text, (error, results) => {
@@ -170,7 +162,6 @@ const updateUserImage = (req, res) => {
       const decoded = jwt.decode(token, SECRET);
 
       const { account_id } = decoded;
-
       if (!account_id) {
         return res.status(401).json({ error: "Invalid token" });
       }
