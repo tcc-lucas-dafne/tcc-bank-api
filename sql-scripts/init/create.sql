@@ -26,3 +26,22 @@ CREATE TABLE account_request (
   review_date TIMESTAMPTZ,
   status account_request_status NOT NULL DEFAULT,
 );
+
+CREATE TABLE investment (
+  investment_id INT GENERATED ALWAYS AS IDENTITY NOT NULL,
+  name VARCHAR(64) NOT NULL,
+  description TEXT NOT NULL,
+
+  PRIMARY KEY (investment_id)
+);
+
+CREATE TABLE investment_comment (
+  account_id INT NOT NULL,
+  investment_id INT NOT NULL,
+  comment TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+
+  CONSTRAINT fk_account FOREIGN KEY (account_id) REFERENCES account(account_id),
+  CONSTRAINT fk_investment FOREIGN KEY (investment_id) REFERENCES account(investment_id)
+);
+
