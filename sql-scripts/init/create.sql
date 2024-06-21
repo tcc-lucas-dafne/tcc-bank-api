@@ -23,7 +23,7 @@ CREATE TABLE account_detail (
 CREATE TYPE account_request_status AS ENUM ('approved', 'reproved', 'pending');
 
 CREATE TABLE account_request (
-  account_id INT NOT NULL,
+  account_id UNIQUE INT NOT NULL,
   requested_amount NUMERIC NOT NULL,
   request_date TIMESTAMPTZ NOT NULL,
   review_date TIMESTAMPTZ,

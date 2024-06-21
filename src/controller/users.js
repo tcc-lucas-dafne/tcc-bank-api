@@ -203,7 +203,13 @@ const createLimitIncreaseRequest = (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const text = "INSERT INTO account_request (account_id, requested_amount, request_date, status) VALUES ($1, $2, $3, $4);";
+    const text = `
+      INSERT INTO account_request (account_id, requested_amount, request_date, status)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (account_id) DO UPDATE 
+        SET request_date = $3, 
+            requested_amount = $2;`
+
     const values = [
       account_id,
       requestedAmount,
