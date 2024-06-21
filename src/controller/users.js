@@ -61,7 +61,7 @@ const login = (req, res) => {
 
   // SQL Injection
   const text = `
-    SELECT account.name, account.email, account_detail.* 
+    SELECT account.name, account.email, account.role, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
     WHERE email='${email}' AND password='${hashedPassword}'
@@ -96,7 +96,7 @@ const getUser = (req, res) => {
     if (decoded?.account_id) {
       // SQL Injection
       const text = `
-        SELECT account.name, account.email, account.image, account_detail.* 
+        SELECT account.name, account.email, account.image, account.role, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
         WHERE account.account_id=${decoded.account_id}
