@@ -23,11 +23,14 @@ CREATE TABLE account_detail (
 CREATE TYPE account_request_status AS ENUM ('approved', 'reproved', 'pending');
 
 CREATE TABLE account_request (
+  id INT GENERATED ALWAYS AS IDENTITY NOT NULL,
   account_id UNIQUE INT NOT NULL,
   requested_amount NUMERIC NOT NULL,
   request_date TIMESTAMPTZ NOT NULL,
   review_date TIMESTAMPTZ,
   status account_request_status NOT NULL DEFAULT,
+
+  PRIMARY KEY (id)
 );
 
 CREATE TABLE investment (

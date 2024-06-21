@@ -203,33 +203,106 @@ const createLimitIncreaseRequest = (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    const text = `
+    const checkPendingRequestQuery = `
+      SELECT 1 FROM account_request
+      WHERE account_id = $1 AND status = 'pending'`;
+
+    const updatePendingRequestQuery = `
+      UPDATE account_request
+      SET requested_amount = $1, request_date = $2
+      WHERE account_id = $3 AND status = 'pending'`;
+
+    const insertNewRequestQuery = `
       INSERT INTO account_request (account_id, requested_amount, request_date, status)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (account_id) DO UPDATE 
-        SET request_date = $3, 
-            requested_amount = $2;`
+      VALUES ($1, $2, $3, $4)`;
 
-    const values = [
-      account_id,
-      requestedAmount,
-      new Date(),
-      "pending"
-    ]
+    const now = new Date();
 
-    pool.query(text, values, (error, _) => {
+    pool.query(checkPendingRequestQuery, [account_id], (error, result) => {
       if (error) {
         console.log('error: ', error);
-        return res.status(500).json({ error: "Error request create" });
+        return res.status(500).json({ error: "Error checking pending requests" });
       }
 
-      return res.status(201).send("Request created");
-    })
+      if (result.rows.length > 0) {
+        pool.query(updatePendingRequestQuery, [requestedAmount, now, account_id], (error, _) => {
+          if (error) {
+            console.log('error: ', error);
+            return res.status(500).json({ error: "Error updating request" });
+          }
+
+          return res.status(200).send("Request updated");
+        });
+      } else {
+        pool.query(insertNewRequestQuery, [account_id, requestedAmount, now, "pending"], (error, _) => {
+          if (error) {
+            console.log('error: ', error);
+            return res.status(500).json({ error: "Error creating request" });
+          }
+
+          return res.status(201).send("Request created");
+        });
+      }
+    });
   } catch (error) {
     console.error('[createLimitIncreaseRequest]: ', error);
     return res.status(500).json({ error: "Unknown Error" });
   }
 };
+
+const getUserRequests = (req, res) => {
+  try {
+    const text = `
+      SELECT account_request.*, account.name, account.email 
+      FROM account_request
+      INNER JOIN account ON account_request.account_id = account.account_id
+    `;
+
+    pool.query(text, (error, results) => {
+      if (error) {
+        return res.status(500).json({ "error": "Error request fetch" });
+      }
+
+      return res.status(200).json({ data: results.rows });
+    })
+  } catch (err) {
+    console.error('Err: ', err);
+    return res.status(500).json({ "status": "error" });
+  }
+}
+
+const reviewRequest = async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { review, requestId } = req.body;
+
+    await client.query('BEGIN');
+
+    const text1 = "UPDATE account_request SET status = $1, review_date = $2 WHERE id = $3 RETURNING requested_amount, account_id";
+    const values1 = [review, new Date(), requestId];
+    const result1 = await client.query(text1, values1);
+
+    if (review === "approved") {
+      const requestedAmount = result1.rows[0].requested_amount;
+      const accountId = result1.rows[0].account_id;
+  
+      const text2 = "UPDATE account_detail SET acc_limit = $1 WHERE account_id = $2";
+      const values2 = [requestedAmount, accountId];
+      await client.query(text2, values2);
+    }
+
+    await client.query('COMMIT');
+
+    return res.status(201).send("Request reviewed and account updated");
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Err: ', error);
+    return res.status(500).json({ "error": "Error reviewing request or updating account" });
+  } finally {
+    client.release();
+  }
+}
 
 module.exports = {
   register,
@@ -237,5 +310,7 @@ module.exports = {
   getUser,
   uploadUserDocument,
   updateUserImage,
+  getUserRequests,
+  reviewRequest,
   createLimitIncreaseRequest
 }
