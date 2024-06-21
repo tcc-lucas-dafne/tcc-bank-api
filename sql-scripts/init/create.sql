@@ -1,9 +1,12 @@
+CREATE TYPE account_role AS ENUM ('user', 'admin');
+
 CREATE TABLE account (
 	account_id INT GENERATED ALWAYS AS IDENTITY NOT NULL,
   name VARCHAR(64) NOT NULL,
   email VARCHAR(64) UNIQUE NOT NULL,
   password VARCHAR(64) NOT NULL,
   image TEXT,
+  role account_role NOT NULL DEFAULT 'user',
   
 	PRIMARY KEY (account_id)
 );
