@@ -5,9 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { config } = require('../config/database');
-
-// Secret fraco
-const SECRET = process.env.SECRET ?? 'mysecret';
+const { SECRET } = require('../constants');
 
 const pool = new Pool({
   user: config.POSTGRES_USER,
@@ -96,7 +94,7 @@ const getUser = (req, res) => {
     if (decoded?.account_id) {
       // SQL Injection
       const text = `
-        SELECT account.name, account.email, account.image, account.role, account_detail.* 
+        SELECT account.account_id, account.name, account.email, account.image, account.role, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
         WHERE account.account_id=${decoded.account_id}
@@ -304,6 +302,25 @@ const reviewRequest = async (req, res) => {
   }
 }
 
+const uploadFile = (req, res) => {
+  if (!req.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+  res.send('File uploaded successfully.');
+}
+
+// Endpoint with LFI
+const getFile = (req, res) => {
+  const { fileName } = req.query;
+  const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
+  res.download(filePath, fileName, (err) => {
+    if (err) {
+      return res.status(500).send('Error reading file.');
+    }
+  });
+}
+
+
 module.exports = {
   register,
   login,
@@ -312,5 +329,7 @@ module.exports = {
   updateUserImage,
   getUserRequests,
   reviewRequest,
-  createLimitIncreaseRequest
+  createLimitIncreaseRequest,
+  uploadFile,
+  getFile
 }
