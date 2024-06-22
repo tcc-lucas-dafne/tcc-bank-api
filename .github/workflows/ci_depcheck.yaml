@@ -22,35 +22,6 @@ jobs:
           git config --global user.email "${{secrets.GIT_USER_EMAIL}}"
           git config --global user.name "${{secrets.GIT_USER_NAME}}"
       
-      # - uses: pnpm/action-setup@v4
-      #   with:
-      #     version: 8
-
-      # - name: install pnpm
-      #   run: pnpm install --frozen-lockfile
-
-      - name: install npm
-        run: npm install --frozen-lockfile
-
-      - name: files
-        run: ls
-
-      # SCA
-      # SNYK
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/node@master
-        continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --sarif-file-output=snyk.sarif
-
-      # - name: Upload result to GitHub Code Scanning
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     sarif_file: snyk.sarif
-      #     category: my-analysis-tool
-      
       - name: install npm ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.TOKEN_GIT }}
