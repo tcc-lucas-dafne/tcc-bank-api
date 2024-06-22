@@ -22,11 +22,9 @@ jobs:
         with:
           version: 8
 
-      - name: run pnpm audit
-        run: pnpm audit
+      - name: run npm audit
+        run: npm-audit
 
-      - name: install pnpm
-        run: pnpm install --frozen-lockfile
 
       # SONAR CLOUD
       - name: SonarCloud
