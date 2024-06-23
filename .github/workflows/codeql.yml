@@ -1,8 +1,12 @@
 name: "CodeQL"
 
 on:
+  push:
+    branches: [ "main" ]
   pull_request:
     branches: [ "develop" ]
+
+    
 
 jobs:
   analyze:
@@ -21,6 +25,7 @@ jobs:
         include:
         - language: javascript-typescript
           build-mode: none
+          
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
