@@ -309,16 +309,34 @@ const uploadFile = (req, res) => {
   res.send('File uploaded successfully.');
 }
 
-// Endpoint with LFI
 const getFile = (req, res) => {
   const { fileName } = req.query;
-  const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
-  res.download(filePath, fileName, (err) => {
-    if (err) {
-      return res.status(500).send('Error reading file.');
+
+  if (typeof fileName !== 'string') {
+    return res.status(400).send('Invalid file name.');
+  }
+
+  const extension = path.extname(fileName);
+  if (extension !== '.pdf') {
+    return res.status(400).send('File type not allowed.');
+  }
+
+  const sanitizedFileName = path.basename(fileName);
+
+  const filePath = path.join(__dirname, '..', '..', 'uploads', sanitizedFileName);
+
+  fs.realpath(filePath, (err, resolvedPath) => {
+    if (err || !resolvedPath.startsWith(path.join(__dirname, '..', '..', 'uploads'))) {
+      return res.status(400).send('Invalid file path.');
     }
+
+    res.download(resolvedPath, sanitizedFileName, (err) => {
+      if (err) {
+        return res.status(500).send('Error reading file.');
+      }
+    });
   });
-}
+};
 
 
 module.exports = {
