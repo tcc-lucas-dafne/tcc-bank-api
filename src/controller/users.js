@@ -57,15 +57,16 @@ const login = (req, res) => {
 
   const hashedPassword = sha1(password);
 
-  // SQL Injection
   const text = `
     SELECT account.name, account.email, account.role, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email='${email}' AND password='${hashedPassword}'
+    WHERE email=$1 AND password=$2
   `;
 
-  pool.query(text, (error, results) => {
+  const values = [email, hashedPassword];
+
+  pool.query(text, values, (error, results) => {
     if (error) {
       throw error;
     }
@@ -79,7 +80,7 @@ const login = (req, res) => {
     } else {
       res.status(400).json({ "status": "error", "message": "not found" })
     }
-  })
+  });
 };
 
 const getUser = (req, res) => {
