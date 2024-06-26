@@ -1,9 +1,6 @@
 const Pool = require('pg').Pool
-const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
 const { config } = require('../config/database');
 
 // Secret fraco
@@ -15,6 +12,7 @@ const pool = new Pool({
   database: config.POSTGRES_DB,
   password: process.env.POSTGRES_PASSWORD,
   port: 5432,
+  ...(process.env.POSTGRES_HOST !== "localhost" && { ssl: { rejectUnauthorized: false }})
 });
 
 const getInvestments = (req, res) => {

@@ -13,6 +13,7 @@ const pool = new Pool({
   database: config.POSTGRES_DB,
   password: process.env.POSTGRES_PASSWORD,
   port: 5432,
+  ...(process.env.POSTGRES_HOST !== "localhost" && { ssl: { rejectUnauthorized: false }})
 });
 
 const register = (req, res) => {
