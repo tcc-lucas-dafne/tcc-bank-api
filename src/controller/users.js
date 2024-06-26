@@ -23,10 +23,10 @@ const register = (req, res) => {
   // Hash vulneravel
   const hashedPassword = sha1(password);
 
-  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
+  const text = `INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id`;
+  const values = [name, email, hashedPassword]
 
-  // SQL Injection
-  pool.query(text, (error, result) => {
+  pool.query(text, values, (error, result) => {
     if (error) {
       if (error.code === '23505') {
         return res.status(400).json({ "error": "already registered" })
@@ -41,9 +41,10 @@ const register = (req, res) => {
 };
 
 const createAccountDetails = (accountId, res) => {
-  const text = `INSERT INTO account_detail(account_id, balance, acc_limit) VALUES(${accountId}, 0, 100)`;
+  const text = `INSERT INTO account_detail(account_id, balance, acc_limit) VALUES($1, 0, 100)`;
+  const values = [accountId]
 
-  pool.query(text, (error, _) => {
+  pool.query(text, values, (error, _) => {
     if (error) {
       return res.status(400).json({ "error": `unknown error (${error.code})` })
     }
@@ -98,10 +99,11 @@ const getUser = (req, res) => {
         SELECT account.account_id, account.name, account.email, account.image, account.role, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
-        WHERE account.account_id=${decoded.account_id}
+        WHERE account.account_id = $1
       `;
+      const values = [decoded.account_id]
 
-      pool.query(text, (error, results) => {
+      pool.query(text, values, (error, results) => {
         if (error) {
           throw error;
         }
