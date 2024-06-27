@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const url = require('url');
 const { config } = require('../config/database');
 const { SECRET } = require('../constants');
 
@@ -23,10 +24,10 @@ const register = (req, res) => {
   // Hash vulneravel
   const hashedPassword = sha1(password);
 
-  const text = `INSERT INTO account(name, email, password) VALUES('${name}', '${email}', '${hashedPassword}') RETURNING account_id`;
+  const text = `INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id`;
+  const values = [name, email, hashedPassword]
 
-  // SQL Injection
-  pool.query(text, (error, result) => {
+  pool.query(text, values, (error, result) => {
     if (error) {
       if (error.code === '23505') {
         return res.status(400).json({ "error": "already registered" })
@@ -41,9 +42,10 @@ const register = (req, res) => {
 };
 
 const createAccountDetails = (accountId, res) => {
-  const text = `INSERT INTO account_detail(account_id, balance, acc_limit) VALUES(${accountId}, 0, 100)`;
+  const text = `INSERT INTO account_detail(account_id, balance, acc_limit) VALUES($1, 0, 100)`;
+  const values = [accountId]
 
-  pool.query(text, (error, _) => {
+  pool.query(text, values, (error, _) => {
     if (error) {
       return res.status(400).json({ "error": `unknown error (${error.code})` })
     }
@@ -57,15 +59,16 @@ const login = (req, res) => {
 
   const hashedPassword = sha1(password);
 
-  // SQL Injection
   const text = `
     SELECT account.name, account.email, account.role, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email='${email}' AND password='${hashedPassword}'
+    WHERE email=$1 AND password=$2
   `;
 
-  pool.query(text, (error, results) => {
+  const values = [email, hashedPassword];
+
+  pool.query(text, values, (error, results) => {
     if (error) {
       throw error;
     }
@@ -79,7 +82,7 @@ const login = (req, res) => {
     } else {
       res.status(400).json({ "status": "error", "message": "not found" })
     }
-  })
+  });
 };
 
 const getUser = (req, res) => {
@@ -97,10 +100,11 @@ const getUser = (req, res) => {
         SELECT account.account_id, account.name, account.email, account.image, account.role, account_detail.* 
         FROM account 
         INNER JOIN account_detail ON account.account_id = account_detail.account_id
-        WHERE account.account_id=${decoded.account_id}
+        WHERE account.account_id = $1
       `;
+      const values = [decoded.account_id]
 
-      pool.query(text, (error, results) => {
+      pool.query(text, values, (error, results) => {
         if (error) {
           throw error;
         }
@@ -143,37 +147,62 @@ const uploadUserDocument = (req, res) => {
   });
 }
 
-const updateUserImage = (req, res) => {
-  const url = req.body.url;
+const updateUserImage = async (req, res) => {
+  const imageUrl = req.body.url;
 
   try {
-    axios.get(
-      url,
-      { responseType: 'arraybuffer' }
-    ).then((response) => {
-      const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+    new URL(imageUrl);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
 
-      const { authorization } = req.headers;
+  const allowedDomains = ['i.imgur.com'];
+  const hostname = url.parse(imageUrl).hostname;
 
-      const token = authorization.split(' ')[1];
-  
-      const decoded = jwt.decode(token, SECRET);
+  if (!allowedDomains.includes(hostname)) {
+    return res.status(400).json({ error: 'URL domain is not allowed' });
+  }
 
-      const { account_id } = decoded;
-      if (!account_id) {
-        return res.status(401).json({ error: "Invalid token" });
+  try {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      maxContentLength: 1 * 1024 * 1024,
+      maxRedirects: 0,
+    });
+
+    const contentType = response.headers['content-type'];
+    if (!contentType.startsWith('image/')) {
+      return res.status(400).json({ error: 'URL does not point to an image' });
+    }
+
+    const base64Image = Buffer
+      .from(response.data, 'binary')
+      .toString('base64');
+
+    const { authorization } = req.headers;
+    if (!authorization) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const token = authorization.split(' ')[1];
+    const decoded = jwt.verify(token, SECRET);
+
+    const { account_id } = decoded;
+    if (!account_id) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const text = "UPDATE account SET image = $1 WHERE account_id = $2";
+    const values = [base64Image, account_id];
+
+    pool.query(text, values, (error, _) => {
+      if (error) {
+        console.error('Database error:', error);
+        return res.status(500).json({ error: 'Upload image error' });
       }
 
-      const text = "UPDATE account SET image = ($1) WHERE account_id = $2";
-      const values = [base64Image, account_id];
-
-      pool.query(text, values, (error, _) => {
-        if (error) {
-          return res.status(500).json({ "error": "Upload image error" });
-        }
-
-        res.send({ message: 'Image uploaded successfully' });
-      })
+      res.send({ message: 'Image uploaded successfully' });
     });
   } catch (error) {
     console.error('Error fetching image:', error);
@@ -309,16 +338,34 @@ const uploadFile = (req, res) => {
   res.send('File uploaded successfully.');
 }
 
-// Endpoint with LFI
 const getFile = (req, res) => {
   const { fileName } = req.query;
-  const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
-  res.download(filePath, fileName, (err) => {
-    if (err) {
-      return res.status(500).send('Error reading file.');
+
+  if (typeof fileName !== 'string') {
+    return res.status(400).send('Invalid file name.');
+  }
+
+  const extension = path.extname(fileName);
+  if (extension !== '.pdf') {
+    return res.status(400).send('File type not allowed.');
+  }
+
+  const sanitizedFileName = path.basename(fileName);
+
+  const filePath = path.join(__dirname, '..', '..', 'uploads', sanitizedFileName);
+
+  fs.realpath(filePath, (err, resolvedPath) => {
+    if (err || !resolvedPath.startsWith(path.join(__dirname, '..', '..', 'uploads'))) {
+      return res.status(400).send('Invalid file path.');
     }
+
+    res.download(resolvedPath, sanitizedFileName, (err) => {
+      if (err) {
+        return res.status(500).send('Error reading file.');
+      }
+    });
   });
-}
+};
 
 
 module.exports = {
