@@ -19,8 +19,24 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+const allowedOrigins = ['https://prod-tcc-bank.vercel.app'];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed'));
+    }
+  },
+  methods: 'GET,POST',
+  allowedHeaders: 'Origin, X-Requested-With, Content-Type, Accept, Authorization',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
 const app = express();
-app.use(cors({ origin: '*' }));
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }))
 app.use(limiter);
