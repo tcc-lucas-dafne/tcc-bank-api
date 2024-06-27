@@ -1,10 +1,10 @@
 const Pool = require('pg').Pool
-const sha1 = require('sha1');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const url = require('url');
+const bcrypt = require('bcrypt');
 const { config } = require('../config/database');
 const { SECRET } = require('../constants');
 
@@ -16,29 +16,33 @@ const pool = new Pool({
   port: 5432,
 });
 
-const register = (req, res) => {
+const register = async (req, res) => {
   const { name, email, password } = req.body;
 
-  if (!name || !email || !password) return res.status(400).json({ "error": "invalid body" })
+  if (!name || !email || !password) {
+    return res.status(400).json({ "error": "invalid body" });
+  }
 
-  // Hash vulneravel
-  const hashedPassword = sha1(password);
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  const text = `INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id`;
-  const values = [name, email, hashedPassword]
+    const text = 'INSERT INTO account(name, email, password) VALUES($1, $2, $3) RETURNING account_id';
+    const values = [name, email, hashedPassword];
 
-  pool.query(text, values, (error, result) => {
-    if (error) {
-      if (error.code === '23505') {
-        return res.status(400).json({ "error": "already registered" })
-      } else {
-        return res.status(400).json({ "error": `unknown error (${error.code})` })
-      }
-    }
+    const result = await pool.query(text, values);
 
     const { account_id } = result.rows[0];
-    createAccountDetails(account_id, res);  // Missing return of response
-  });
+    createAccountDetails(account_id, res);
+  } catch (error) {
+    console.error('error: ', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ "error": "already registered" });
+    } else if (error.code) {
+      return res.status(400).json({ "error": `unknown error (${error.code})` });
+    } else {
+      return res.status(500).json({ "error": "unknown error" });
+    }
+  }
 };
 
 const createAccountDetails = (accountId, res) => {
@@ -54,35 +58,43 @@ const createAccountDetails = (accountId, res) => {
   })
 }
 
-const login = (req, res) => {
-  const { email, password } = req.body;
-
-  const hashedPassword = sha1(password);
+const login = async (req, res) => {
+  let { email, password } = req.body;
 
   const text = `
-    SELECT account.name, account.email, account.role, account_detail.* 
+    SELECT account.name, account.email, account.role, account.password, account_detail.* 
     FROM account 
     INNER JOIN account_detail ON account.account_id = account_detail.account_id
-    WHERE email=$1 AND password=$2
+    WHERE email=$1
   `;
 
-  const values = [email, hashedPassword];
+  const values = [email];
 
-  pool.query(text, values, (error, results) => {
-    if (error) {
-      throw error;
-    }
+  try {
+    const results = await pool.query(text, values);
 
     if (results.rowCount) {
       const result = results.rows[0];
-      const tokenData = { account_id: result.account_id };
+      
+      const passwordMatch = await bcrypt.compare(password, result.password);
 
-      const token = jwt.sign(tokenData, SECRET, { expiresIn: '7d' });
-      res.status(200).json({ token, account: result })
+      if (passwordMatch) {
+        const tokenData = { account_id: result.account_id };
+        const token = jwt.sign(tokenData, SECRET, { expiresIn: '7d' });
+
+        delete result.password;
+
+        res.status(200).json({ token, account: result });
+      } else {
+        res.status(400).json({ "status": "error", "message": "invalid credentials" });
+      }
     } else {
-      res.status(400).json({ "status": "error", "message": "not found" })
+      res.status(400).json({ "status": "error", "message": "not found" });
     }
-  });
+  } catch (error) {
+    console.error('Err: ', err);
+    throw error;
+  }
 };
 
 const getUser = (req, res) => {
