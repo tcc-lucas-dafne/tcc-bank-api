@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const url = require('url');
 const { config } = require('../config/database');
 const { SECRET } = require('../constants');
 
@@ -146,37 +147,62 @@ const uploadUserDocument = (req, res) => {
   });
 }
 
-const updateUserImage = (req, res) => {
-  const url = req.body.url;
+const updateUserImage = async (req, res) => {
+  const imageUrl = req.body.url;
 
   try {
-    axios.get(
-      url,
-      { responseType: 'arraybuffer' }
-    ).then((response) => {
-      const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+    new URL(imageUrl);
+  } catch (_) {
+    return res.status(400).json({ error: 'Invalid URL' });
+  }
 
-      const { authorization } = req.headers;
+  const allowedDomains = ['i.imgur.com'];
+  const hostname = url.parse(imageUrl).hostname;
 
-      const token = authorization.split(' ')[1];
-  
-      const decoded = jwt.decode(token, SECRET);
+  if (!allowedDomains.includes(hostname)) {
+    return res.status(400).json({ error: 'URL domain is not allowed' });
+  }
 
-      const { account_id } = decoded;
-      if (!account_id) {
-        return res.status(401).json({ error: "Invalid token" });
+  try {
+    const response = await axios.get(imageUrl, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      maxContentLength: 1 * 1024 * 1024,
+      maxRedirects: 0,
+    });
+
+    const contentType = response.headers['content-type'];
+    if (!contentType.startsWith('image/')) {
+      return res.status(400).json({ error: 'URL does not point to an image' });
+    }
+
+    const base64Image = Buffer
+      .from(response.data, 'binary')
+      .toString('base64');
+
+    const { authorization } = req.headers;
+    if (!authorization) {
+      return res.status(401).json({ error: 'No authorization header' });
+    }
+
+    const token = authorization.split(' ')[1];
+    const decoded = jwt.verify(token, SECRET);
+
+    const { account_id } = decoded;
+    if (!account_id) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const text = "UPDATE account SET image = $1 WHERE account_id = $2";
+    const values = [base64Image, account_id];
+
+    pool.query(text, values, (error, _) => {
+      if (error) {
+        console.error('Database error:', error);
+        return res.status(500).json({ error: 'Upload image error' });
       }
 
-      const text = "UPDATE account SET image = ($1) WHERE account_id = $2";
-      const values = [base64Image, account_id];
-
-      pool.query(text, values, (error, _) => {
-        if (error) {
-          return res.status(500).json({ "error": "Upload image error" });
-        }
-
-        res.send({ message: 'Image uploaded successfully' });
-      })
+      res.send({ message: 'Image uploaded successfully' });
     });
   } catch (error) {
     console.error('Error fetching image:', error);
@@ -312,16 +338,34 @@ const uploadFile = (req, res) => {
   res.send('File uploaded successfully.');
 }
 
-// Endpoint with LFI
 const getFile = (req, res) => {
   const { fileName } = req.query;
-  const filePath = path.join(__dirname, '..', '..', 'uploads', fileName);
-  res.download(filePath, fileName, (err) => {
-    if (err) {
-      return res.status(500).send('Error reading file.');
+
+  if (typeof fileName !== 'string') {
+    return res.status(400).send('Invalid file name.');
+  }
+
+  const extension = path.extname(fileName);
+  if (extension !== '.pdf') {
+    return res.status(400).send('File type not allowed.');
+  }
+
+  const sanitizedFileName = path.basename(fileName);
+
+  const filePath = path.join(__dirname, '..', '..', 'uploads', sanitizedFileName);
+
+  fs.realpath(filePath, (err, resolvedPath) => {
+    if (err || !resolvedPath.startsWith(path.join(__dirname, '..', '..', 'uploads'))) {
+      return res.status(400).send('Invalid file path.');
     }
+
+    res.download(resolvedPath, sanitizedFileName, (err) => {
+      if (err) {
+        return res.status(500).send('Error reading file.');
+      }
+    });
   });
-}
+};
 
 
 module.exports = {
